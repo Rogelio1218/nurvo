@@ -63,6 +63,7 @@ interface MedStore {
   deleteMedication: (id: string) => void;
   setTodaysDoses: (doses: DoseLog[]) => void;
   updateDoseStatus: (doseId: string, status: DoseLog['status']) => void;
+  decrementSupply: (medicationId: string) => void;
   setLoadingMeds: (loading: boolean) => void;
 }
 
@@ -88,6 +89,14 @@ export const useMedStore = create<MedStore>((set) => ({
     set((state) => ({
       todaysDoses: state.todaysDoses.map((d) =>
         d.id === doseId ? { ...d, status } : d
+      ),
+    })),
+  decrementSupply: (medicationId) =>
+    set((state) => ({
+      medications: state.medications.map((m) =>
+        m.id === medicationId && m.supply_count !== undefined && m.supply_count !== null
+          ? { ...m, supply_count: Math.max(m.supply_count - 1, 0) }
+          : m
       ),
     })),
   setLoadingMeds: (loadingMeds) => set({ loadingMeds }),

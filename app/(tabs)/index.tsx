@@ -18,11 +18,14 @@ import { useMedStore } from '../../store/medStore';
 import MedCard from '../../components/MedCard';
 import StreakBadge from '../../components/StreakBadge';
 import CompletionRitual from '../../components/CompletionRitual';
+import LowSupplyBanner from '../../components/LowSupplyBanner';
 import {
   getTodaysDoses,
   logDose,
   getStreak,
   upsertStreak,
+  decrementSupply,
+  getMedications,
 } from '../../lib/api';
 
 const DAILY_TIPS = [
@@ -37,7 +40,7 @@ const DAILY_TIPS = [
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { activeProfileId, activeProfileName } = useUserStore();
-  const { todaysDoses, setTodaysDoses, updateDoseStatus } = useMedStore();
+  const { todaysDoses, setTodaysDoses, updateDoseStatus, medications, setMedications, decrementSupply: decrementSupplyLocal } = useMedStore();
   const [streak, setStreak] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [showRitual, setShowRitual] = useState(false);
@@ -49,12 +52,14 @@ export default function HomeScreen() {
   const loadData = useCallback(async () => {
     if (!activeProfileId) return;
     try {
-      const [doses, streakData] = await Promise.all([
+      const [doses, streakData, meds] = await Promise.all([
         getTodaysDoses(activeProfileId),
         getStreak(activeProfileId),
+        getMedications(activeProfileId),
       ]);
       setTodaysDoses(doses as any);
       setStreak(streakData?.current_streak ?? 0);
+      setMedications(meds as any);
     } catch (err) {
       console.error('Error loading home data:', err);
     } finally {
@@ -87,6 +92,10 @@ export default function HomeScreen() {
         dose.scheduled_time,
         'taken'
       );
+
+      // Decrement supply count when dose is taken
+      decrementSupplyLocal(dose.medication_id);
+      decrementSupply(dose.medication_id).catch(() => {});
 
       const remainingPending = todaysDoses.filter(
         (d) => d.id !== doseId && d.status === 'pending'
@@ -198,6 +207,9 @@ export default function HomeScreen() {
             </Text>
           </View>
         )}
+
+        {/* Low Supply Alerts */}
+        <LowSupplyBanner medications={medications} />
 
         {/* Today's Medications */}
         <View style={styles.section}>

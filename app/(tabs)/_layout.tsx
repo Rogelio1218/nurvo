@@ -42,6 +42,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="refill"
+        options={{
+          title: 'Refill',
+          tabBarIcon: ({ color }) => (
+            <Feather name="search" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="clarity"
         options={{
           title: 'Clarity',
