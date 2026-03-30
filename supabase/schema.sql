@@ -173,6 +173,19 @@ create policy "Users can view own clarity" on clarity_messages for all using (co
 create policy "Users can view own clarity usage" on clarity_daily_usage for all using (profile_id in (select id from profiles where user_id = auth.uid()));
 create policy "Users can view own notifications" on notification_queue for all using (profile_id in (select id from profiles where user_id = auth.uid()));
 
+-- Helper RPC for atomic supply decrement
+create or replace function decrement_supply(p_medication_id uuid)
+returns void as $$
+begin
+  update medications
+  set supply_count = greatest(supply_count - 1, 0),
+      supply_last_updated = now()
+  where id = p_medication_id
+    and supply_count is not null
+    and supply_count > 0;
+end;
+$$ language plpgsql security definer;
+
 -- Helper RPC for clarity usage increment
 create or replace function increment_clarity_usage(p_profile_id uuid, p_date date)
 returns void as $$

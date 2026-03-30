@@ -187,6 +187,60 @@ export async function upsertStreak(profileId: string, updates: Record<string, an
   return data;
 }
 
+// ─── Supply Tracking ─────────────────────────────────────────────────────────
+
+export async function decrementSupply(medicationId: string) {
+  // Use RPC to atomically decrement supply — never go below 0
+  const { data, error } = await supabase.rpc('decrement_supply', {
+    p_medication_id: medicationId,
+  });
+  if (error) {
+    // Fallback: manual update
+    const med = await supabase
+      .from('medications')
+      .select('supply_count')
+      .eq('id', medicationId)
+      .single();
+    if (med.data && med.data.supply_count > 0) {
+      await supabase
+        .from('medications')
+        .update({
+          supply_count: med.data.supply_count - 1,
+          supply_last_updated: new Date().toISOString(),
+        })
+        .eq('id', medicationId);
+    }
+  }
+  return data;
+}
+
+export async function updateSupplyCount(medicationId: string, count: number) {
+  const { data, error } = await supabase
+    .from('medications')
+    .update({
+      supply_count: count,
+      supply_last_updated: new Date().toISOString(),
+    })
+    .eq('id', medicationId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function getLowSupplyMedications(profileId: string) {
+  const { data, error } = await supabase
+    .from('medications')
+    .select('*')
+    .eq('profile_id', profileId)
+    .eq('status', 'active')
+    .not('supply_count', 'is', null)
+    .lte('supply_count', 7)
+    .order('supply_count', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
 // ─── Drug Interactions ────────────────────────────────────────────────────────
 
 export async function saveInteraction(interaction: Record<string, any>) {
